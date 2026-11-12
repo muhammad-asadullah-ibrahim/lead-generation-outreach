@@ -1,0 +1,257 @@
+{
+  "active": false,
+  "connections": {
+    "Daily 9 AM": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Read Leads (Sheets)",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Read Leads (Sheets)": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Pick Next Step",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Pick Next Step": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Build Message (Template)",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Build Message (Template)": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "AI Personalize (Groq)",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "AI Personalize (Groq)": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Extract AI Text (tolerant)",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Extract AI Text (tolerant)": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send Outreach Email (Gmail)",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Send Outreach Email (Gmail)": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Log to Sheet (Outreach Log)",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "name": "Lead Generation + Outreach",
+  "nodes": [
+    {
+      "id": "04e2a9b7-44f9-4f0b-8638-39b18259f86d",
+      "name": "Sticky Note — Setup",
+      "parameters": {
+        "content": "## SETUP (pehle ye 3 kaam karein)\n\n1. **Google account connect karein:** Google Sheets aur Gmail nodes par click kar ke apna Google account select karein (OAuth — key kahin paste nahi karni).\n2. **Sheet ID lagayein:** Google Sheets nodes me apni sheet ki ID daalein. 'Leads' sheet ka pehla row ye headers hona chahiye:\nbusiness_name | contact_name | email | industry | city | employees | status | last_contacted_at\n3. **Groq API key (free, 2 minute):** https://console.groq.com par sign up karein (Google se bhi hota hai), API Keys → Create API Key — koi card nahi chahiye, free tier rozana 1,000 requests. Key ko 'AI Personalize (Groq)' node ke Authorization header me paste karein (PASTE_YOUR_GROQ_API_KEY_HERE ki jagah, 'Bearer ' rehne dein). Groq band ho ya key na ho to bhi workflow chalta hai: template message bhej di jati hai. Laptop par kuch chalana nahi parta — na Ollama, na koi local model. (Gemini bhi chal sakta hai: HTTP node ki URL/header badal kar Gemini endpoint lagayein — magar Gemini ka free tier kuch projects par 'unavailable' dikhata hai, is liye Groq default hai.)\n\nSequence: Step 1 day 0, Step 2 day 3, Step 3 day 7 — phir stop. Reply / meeting / no wale leads sequence se bahar.",
+        "height": 320,
+        "width": 460
+      },
+      "position": [
+        -560,
+        -120
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "id": "bcd225ec-bf41-4776-8fed-2f7ecc6dd72a",
+      "name": "Daily 9 AM",
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        300
+      ],
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1
+    },
+    {
+      "id": "c9e1447f-1064-462e-bbf6-e81164d25660",
+      "name": "Read Leads (Sheets)",
+      "parameters": {
+        "documentId": "PASTE_YOUR_GOOGLE_SHEET_ID_HERE",
+        "operation": "read",
+        "options": {},
+        "sheetName": "Leads"
+      },
+      "position": [
+        240,
+        300
+      ],
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4
+    },
+    {
+      "id": "24863dd5-6316-48b6-b258-5eea2efd7305",
+      "name": "Pick Next Step",
+      "parameters": {
+        "jsCode": "// Har lead ke liye agla step nikalo: step 1 day 0, step 2 day 3,\n// step 3 day 7 ke baad. Reply/meeting/won/lost wale bahar.\nconst DONE = ['replied', 'meeting', 'won', 'lost', 'do-not-contact'];\nconst GAPS = { 2: 3, 3: 7 };\nconst out = [];\nfor (const item of $input.all()) {\n  const l = item.json;\n  if (DONE.includes((l.status || 'new').toLowerCase())) continue;\n  const lastStep = parseInt(l.last_step || '0', 10) || 0;\n  const nextStep = lastStep + 1;\n  if (nextStep > 3) continue;\n  if (lastStep > 0) {\n    const last = new Date(l.last_contacted_at || Date.now());\n    const days = (Date.now() - last.getTime()) / 86400000;\n    if (days < GAPS[nextStep]) continue;\n  }\n  out.push({ json: { ...l, step: nextStep } });\n}\nreturn out;"
+      },
+      "position": [
+        480,
+        300
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "d3631e4e-2965-4b49-9cc8-c7f2f32d9e35",
+      "name": "Build Message (Template)",
+      "parameters": {
+        "jsCode": "// Step ke hisab se template message banao (Python CLI wale\n// templates ke mutabiq). AI node aage isay rewrite kar sakta hai.\nconst PAIN = {\n  'Real Estate': 'leads that message after hours and never hear back until the next day',\n  'Dental': 'missed appointment bookings and patients who do not show up',\n  'Healthcare': 'a front desk buried in calls and appointment requests',\n  'E-commerce': 'abandoned carts and order questions that wait hours for a reply',\n  'Legal': 'consultation requests that go unanswered and intake forms that pile up',\n};\nconst out = [];\nfor (const item of $input.all()) {\n  const l = item.json;\n  const name = l.contact_name || 'there';\n  const pain = PAIN[l.industry] || 'repetitive emails and follow-ups eating hours every week';\n  let subject, body;\n  if (l.step === 1) {\n    subject = `Quick question about ${l.business_name}`;\n    body = `Hi ${name},\\n\\nI help small businesses automate the work that quietly eats hours every week — things like ${pain}.\\n\\nWould a free 10-minute audit be useful? I'll look at how ${l.business_name} handles follow-ups today and tell you the one thing AI could take off your plate. No pitch, no obligation.\\n\\nBest,\\nMuhammad Asadullah Ibrahim\\nAI Automation Specialist`;\n  } else if (l.step === 2) {\n    subject = `Re: Quick question about ${l.business_name}`;\n    body = `Hi ${name},\\n\\nJust floating this back up — most ${l.industry || 'small business'} businesses I speak to lose enquiries the same way: ${pain}. An AI assistant that replies in seconds usually fixes it in a week.\\n\\nHappy to show you what that looks like for ${l.business_name} in 10 minutes, if you're curious.\\n\\nBest,\\nMuhammad Asadullah Ibrahim`;\n  } else {\n    subject = `Closing the loop — ${l.business_name}`;\n    body = `Hi ${name},\\n\\nLast note from me — I don't want to clutter your inbox. If automating follow-ups is on your list this year, I'm here for a quick chat. If not, no worries at all, and I wish ${l.business_name} well.\\n\\nBest,\\nMuhammad Asadullah Ibrahim`;\n  }\n  out.push({ json: { ...l, subject, body } });\n}\nreturn out;"
+      },
+      "position": [
+        720,
+        300
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "f34634df-34f0-48fe-abc3-6e55c0806986",
+      "name": "Extract AI Text (tolerant)",
+      "parameters": {
+        "jsCode": "// AI ka jawab (Groq ya Gemini) + template wala message dono yahan milte hain.\n// AI ka text nikaalo; kuch usable na mile to template hi aage bhej.\nconst raw = $input.first().json;\nconst template = $('Build Message (Template)').first().json;\nlet text = '';\ntry { text = raw.choices[0].message.content || ''; } catch (e) {}\nif (!text) { try { text = raw.candidates[0].content.parts[0].text || ''; } catch (e) {} }\ntext = text.replace(/<think>[\\s\\S]*?<\\/think>/g, '').replace(/```[a-z]*\\n?/gi, '').trim();\nconst m = text.match(/^Subject:\\s*(.+?)\\n+([\\s\\S]+)$/);\nif (m && m[1].trim() && m[2].trim()) {\n  return [{ json: { ...template, subject: m[1].trim(), body: m[2].trim() } }];\n}\n// AI se kuch usable nahi mila — template wala message hi aage bhej\nreturn [{ json: template }];"
+      },
+      "position": [
+        1200,
+        300
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "9ac60918-438e-45f6-8718-c31a9c858e17",
+      "name": "Send Outreach Email (Gmail)",
+      "parameters": {
+        "options": {},
+        "sendTo": "={{ $json.email }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.body }}"
+      },
+      "position": [
+        1440,
+        300
+      ],
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2
+    },
+    {
+      "id": "bb86708d-21ba-403c-8820-afcc0b481a95",
+      "name": "Log to Sheet (Outreach Log)",
+      "parameters": {
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [],
+          "value": {
+            "business_name": "={{ $json.business_name }}",
+            "email": "={{ $json.email }}",
+            "sent_at": "={{ $now.toISO() }}",
+            "status": "sent",
+            "step": "={{ $json.step }}",
+            "subject": "={{ $json.subject }}"
+          }
+        },
+        "documentId": "PASTE_YOUR_GOOGLE_SHEET_ID_HERE",
+        "options": {},
+        "sheetName": "Outreach Log"
+      },
+      "position": [
+        1680,
+        300
+      ],
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4
+    },
+    {
+      "id": "00a70bc6-5aec-4471-9caf-9067386408c6",
+      "name": "AI Personalize (Groq)",
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer PASTE_YOUR_GROQ_API_KEY_HERE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: `Rewrite this outreach email so it sounds like a real person wrote it — short, natural, no hype, no buzzwords. Keep every fact the same, keep it under 120 words, and keep the greeting and sign-off. Reply with the subject line on the first line starting with 'Subject: ', then a blank line, then the email body. No thinking, no explanation.\\n\\nSubject: ${ $json.subject }\\n\\n${ $json.body }` }], temperature: 0.7, max_tokens: 400 } }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "position": [
+        960,
+        300
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    }
+  ],
+  "pinData": {},
+  "settings": {},
+  "staticData": null,
+  "versionId": null,
+  "id": "aba4dced-a6fa-4187-9c8b-5001bf00871e"
+}

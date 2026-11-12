@@ -1,0 +1,4 @@
+# No third-party dependencies — Python 3.10+ standard library only.
+# (Groq or Gemini is optional, and only for --ai rewrites. Free keys:
+#  Groq: https://console.groq.com/keys — set GROQ_API_KEY
+#  Gemini: https://aistudio.google.com/app/apikey — set GEMINI_API_KEY)
