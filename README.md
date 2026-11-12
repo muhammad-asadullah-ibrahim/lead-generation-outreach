@@ -9,6 +9,9 @@ This system fixes that. It finds leads, scores them so you talk to the
 best ones first, writes each of them a personal message, and follows up
 on a polite schedule — until they reply, book, or say no. Then it stops.
 
+**Live demo:** [Lead Outreach Studio](https://legendary-rolypoly-c9a1de.netlify.app) — upload a CSV in your browser and watch it score every lead and draft the 3-email sequence. Same scoring rules as this pipeline.
+
+
 ## How it works
 
 ```
