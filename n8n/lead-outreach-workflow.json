@@ -236,7 +236,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: `Rewrite this outreach email so it sounds like a real person wrote it — short, natural, no hype, no buzzwords. Keep every fact the same, keep it under 120 words, and keep the greeting and sign-off. Reply with the subject line on the first line starting with 'Subject: ', then a blank line, then the email body. No thinking, no explanation.\\n\\nSubject: ${ $json.subject }\\n\\n${ $json.body }` }], temperature: 0.7, max_tokens: 400 } }}",
+        "jsonBody": "={{ { model: 'openai/gpt-oss-20b', messages: [{ role: 'user', content: `Rewrite this outreach email so it sounds like a real person wrote it — short, natural, no hype, no buzzwords. Keep every fact the same, keep it under 120 words, and keep the greeting and sign-off. Reply with the subject line on the first line starting with 'Subject: ', then a blank line, then the email body. No thinking, no explanation.\\n\\nSubject: ${ $json.subject }\\n\\n${ $json.body }` }], temperature: 0.7, max_tokens: 1500, reasoning_effort: 'low' } }}",
         "options": {
           "timeout": 30000
         }
